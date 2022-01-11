@@ -1,0 +1,23 @@
+#This example was written for an internal webpage which displays a password which is randomly generated each day
+#This script will scrape the page and only display the password
+
+import requests
+from bs4 import BeautifulSoup
+
+#URL which contains the randomly generated password
+url = 'REDACTED URL'
+
+#We perform a GET request on the URL
+r = requests.get(url)
+
+#We parse the HTML page's content via BeautifulSoup
+soup = BeautifulSoup(r.content, 'html.parser')
+
+#We look for the div which contains the password placeholder
+pw_ph = soup.find('div', attrs={'id': 'Content'})
+
+#We strip the text from the password placeholder div
+pw= pw_ph.text.strip()
+
+#We print the password
+print (pw)
