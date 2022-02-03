@@ -5,19 +5,31 @@ import requests
 from bs4 import BeautifulSoup
 
 #URL which contains the randomly generated password
-url = 'REDACTED URL'
+url = 'REDACTED_URL'
 
+print (f"Attempting to reach {url}\n")
+
+try:
 #We perform a GET request on the URL
-r = requests.get(url)
+    r = requests.get(url)
+
 
 #We parse the HTML page's content via BeautifulSoup
-soup = BeautifulSoup(r.content, 'html.parser')
+    soup = BeautifulSoup(r.content, 'html.parser')
+
 
 #We look for the div which contains the password placeholder
-pw_ph = soup.find('div', attrs={'id': 'Content'})
+    pw_ph = soup.find('div', attrs={'id': 'Content'})
+
 
 #We strip the text from the password placeholder div
-pw= pw_ph.text.strip()
-
+    pw= pw_ph.text.strip()
+    
+    
 #We print the password
-print (pw)
+    print (f"Service is up!")
+    print (f"{pw}")
+    
+    
+except:
+    print (f"Something went wrong accessing {url}!")
