@@ -1,0 +1,42 @@
+import requests
+
+#URL to make the logon request to
+logon = "http://localhost:8010/product/api/sessions/logon"
+
+#Payload containing the logon information
+payload = {
+            "USERNAME":"",
+            "PASSWORD":"",
+            "DEPOT":""
+            }
+
+
+#Confirm which endpoint is currently being tested
+print (f"Testing API Endpoint: \n{logon}\n")
+
+
+
+#We will try to make the request
+
+try: 
+    
+    
+#Creating the request, joining the URL and payload in JSON format
+    print (f"Attempting logon as: {payload['USERNAME']}...\n")
+    r = requests.post(logon, json=payload)
+    
+    
+#Ensuring the SessionID is returned in JSON format
+    sessionID = r.json()
+
+
+#On success we print the SessionID
+    print (f"Logon successful!\n \nHere is your Key: {sessionID['SESSIONID']}")
+    
+
+except:
+#On fail we print the JSON response
+    r = requests.post(logon, json=payload)
+    print (f"Error trying to connect to API Endpoint: {logon}\n")
+    print (f"You supplied the following payload: \n{payload}\n")
+    print (f"The server responded with: \n{r.json()}")
