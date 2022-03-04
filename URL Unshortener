@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+import requests
+import argparse
+
+parser = argparse.ArgumentParser(prog="Unshorten",description="Did you get a shortened URL that you don't trust? This tool will unshorten it for you so that you can see where it actually leads to.")
+parser.add_argument("-U",
+help="Enter a shortened URL to examine. (E.G: https://cutt.ly/dAd4ipy should lead back to my Github repo)",
+required=True)
+parser.add_argument("-V",
+help="Verbose output")
+
+args = parser.parse_args()
+Short_url = args.U
+verbose = args.V
+
+
+try:
+    r = requests.head(Short_url, allow_redirects=False)
+    print (r.status_code)
+    if r.status_code//100 == 3:
+        print (f"Status code:{r.status_code} \nRedirected to:{r.headers['Location']}")
+        allow_redirects=True
+
+        if r.status_code//100 == 2:
+            print (f"Final destination: {r.url}")
+
+except:
+    print (f"Nothing was redirected")
