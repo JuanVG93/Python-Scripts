@@ -1,28 +1,76 @@
 #!/usr/bin/python3
+#Date created: 08/03/2022
+#Author: Juan van Genderen
+#Purpose: To unshorten a URL and display where it leads to
 import requests
 import argparse
 
-parser = argparse.ArgumentParser(prog="Unshorten",description="Did you get a shortened URL that you don't trust? This tool will unshorten it for you so that you can see where it actually leads to.")
-parser.add_argument("-U",
-help="Enter a shortened URL to examine. (E.G: https://cutt.ly/dAd4ipy should lead back to my Github repo)",
-required=True)
-parser.add_argument("-V",
-help="Verbose output")
-
-args = parser.parse_args()
-Short_url = args.U
-verbose = args.V
+class colours:
+    red = "\033[91m"
+    green = "\033[92m"
+    blue = "\033[34m"
+    orange = "\033[33m"
+    purple = "\033[35m"
+    end = "\033[0m"
 
 
-try:
-    r = requests.head(Short_url, allow_redirects=False)
-    print (r.status_code)
-    if r.status_code//100 == 3:
-        print (f"Status code:{r.status_code} \nRedirected to:{r.headers['Location']}")
-        allow_redirects=True
 
-        if r.status_code//100 == 2:
-            print (f"Final destination: {r.url}")
 
-except:
-    print (f"Nothing was redirected")
+class URL_Unshortener:
+
+
+
+    def parse_arg(self):
+        parser = argparse.ArgumentParser(prog="Unshorten",
+        description="Did you get a shortened URL that you don't trust? This tool will unshorten it for you so that you can see where it actually leads to.")
+        parser.add_argument("url",
+        help="Enter a shortened URL to examine. (E.G: https://cutt.ly/dAd4ipy should lead back to my Github repo)")
+        parser.add_argument("-v",
+        default=False,
+        action="store_true",
+        help="Verbose output")
+
+        args = parser.parse_args()
+        self.args = args
+
+
+
+
+
+    def Unshorten(self):
+        if self.args.v == True:
+            try:
+                r = requests.head(self.args.url)
+                r2= requests.get(self.args.url)
+                if r.status_code//100 == 2:
+                    print (f"{colours.red}The request was not redirected{colours.end}")
+                if r.status_code//100 == 3:
+                    print (f"{colours.purple}Status code: {colours.end}{colours.orange}{r.status_code}{colours.end} \n{colours.red}Redirected to: {colours.end}{colours.blue}{r.headers['Location']}{colours.end}")
+                    if r2.history:
+                        for resp in r2.history:
+                            print (f"{colours.purple}Status code: {colours.end}{colours.orange}{r2.status_code}{colours.end} \n{colours.red}Redirected to: {colours.end}{colours.blue}{r2.url}{colours.end}")
+                        print (f"{colours.green}Final destination: {r2.url}{colours.end}")
+            except:
+                print (f"{colours.red}Something went wrong!{colours.end}")
+
+
+        if self.args.v == False:
+            try:
+                r = requests.head(self.args.url)
+                r2= requests.get(self.args.url)
+                if r.status_code//100 == 2:
+                    print (f"{colours.red}The request was not redirected{colours.end}")
+                if r.status_code//100 == 3:
+                    print (f"{colours.green}Final destination: {r2.url}{colours.end}")
+            except:
+                print (f"{colours.red}Something went wrong!{colours.end}")
+
+
+
+
+
+
+if __name__ == "__main__":
+    URL_Unshortener = URL_Unshortener()
+    URL_Unshortener.parse_arg()
+    URL_Unshortener.Unshorten()
