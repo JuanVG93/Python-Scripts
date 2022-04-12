@@ -1,5 +1,6 @@
 # written by: Juan van Genderen
 # Date: 30/03/2022
+# Purpose: Automated check of which teams and their level of permissions exist for a list of repositories on Github
 import requests
 import os
 from dotenv import load_dotenv
@@ -23,29 +24,23 @@ class credentials:
         # Building the API endpoint to query which will contain the repo from the repo_list we're iterating through
         repo_url = "https://api.github.com/repos/{}/{}/teams"
 
-        # Try to fetch the teams listed for each repository previously supplied
-        with open('Repos.txt', 'r') as repo_list:
-            lines = repo_list.read().splitlines()
-            for repos in lines:
-                session = requests.Session()
-                # Building the request which contains the formatted url, headers and login credentials
-                r = session.get(
-                    repo_url.format(
-                        repo_owner,
-                        repos),
-                    headers=HEADERS,
-                    auth=(
-                        credentials.login,
-                        credentials.token),
-                    timeout=(1,
-                             5)
-                )
-                json_response = r.json()
-                try:
+        # Try to fetch the teams listed for each repository within the Repos.txt file
+        try:
+            with open('Repos.txt', 'r') as repo_list:
+                lines = repo_list.read().splitlines()
+                size = os.path.getsize('Repos.txt')
+                if size < 1:
+                    print(f"Repos.txt is empty!")
+                for repos in lines:
+                    session = requests.Session()
+                    # Building the request which contains the formatted url, headers and login credentials
+                    r = session.get(repo_url.format(repo_owner, repos), headers=HEADERS,
+                                    auth=(credentials.login, credentials.token), timeout=(1, 5))
+                    json_response = r.json()
                     r.raise_for_status()
                     print(f"Checking if {repos} exists on Github...\n")
                     if r.status_code // 100 == 2:
-                        print(f"Teams listed in {repos}:\n")
+                        print(f"**Teams listed in {repos}**\n")
                         for i in json_response:
                             if 'admin' in i['permission']:
                                 print("Teams found with Admin permissions:")
@@ -65,13 +60,13 @@ class credentials:
                                       f"Slug: {i['slug']} \n"
                                       f"Description: {i['description']} \n"
                                       f"Permissions: {i['permissions']}\n")
-                except requests.exceptions.Timeout as timeout:
-                    print(timeout)
-                except requests.exceptions.HTTPError as httperror:
-                    print(httperror)
-                    print("Check the spelling of the repository and make sure you are authenticated!")
-                except FileNotFoundError as nofile:
-                    print(nofile)
+        except requests.exceptions.Timeout as timeout:
+            print(timeout)
+        except requests.exceptions.HTTPError as httperror:
+            print(httperror)
+            print("Check the spelling of the repository and make sure you are authenticated!")
+        except FileNotFoundError as nofile:
+            print(nofile)
 
 
 # Main function building
