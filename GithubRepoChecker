@@ -1,0 +1,76 @@
+# written by: Juan van Genderen
+# Date: 30/03/2022
+import requests
+import os
+from dotenv import load_dotenv
+
+
+class credentials:
+    # Supply user credentials to sign into the GitHub API with personal access token from the .env file within the script directory
+    load_dotenv()
+    login = os.getenv('login')
+    token = os.getenv("github_token")
+
+    def github_repo_team_perms_checker(self):
+
+        # Headers supplied so Github treats request as coming from a webbrowser in case it decides to reject the requests
+        HEADERS = {'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5)'
+                                  'AppleWebKit/537.36 (KHTML, like Gecko)'
+                                  'Chrome/45.0.2454.101 Safari/537.36')
+                   }
+        # Supply a list of repositories that need to be checked
+        repo_list = []
+        repo_owner = ""
+        # Building the API endpoint to query which will contain the repo from the repo_list we're iterating through
+        repo_url = "https://api.github.com/repos/{}/{}/teams"
+
+        # Try to fetch the teams listed for each repository previously supplied
+        for repos in repo_list:
+            session = requests.Session()
+            # Building the request which contains the formatted url, headers and login credentials
+            r = session.get(
+                repo_url.format(
+                repo_owner,
+                repos),
+                headers=HEADERS,
+                auth=(
+                    credentials.login,
+                    credentials.token),
+                timeout=(1,
+                         5)
+            )
+            json_response = r.json()
+            try:
+                r.raise_for_status()
+                print(f"Checking if {repos} exists on Github...\n")
+                if r.status_code // 100 == 2:
+                    print(f"Teams listed in {repos}:\n")
+                    for i in json_response:
+                        if 'admin' in i['permission']:
+                            print("Teams found with Admin permissions:")
+                            print(f"Name: {i['name']} \n"
+                                  f"Slug: {i['slug']} \n"
+                                  f"Description: {i['description']} \n"
+                                  f"Permissions: {i['permissions']}\n")
+                        if 'push' in i['permission']:
+                            print("Teams found with Write permissions:")
+                            print(f"Name: {i['name']} \n"
+                                  f"Slug: {i['slug']} \n"
+                                  f"Description: {i['description']} \n"
+                                  f"Permissions: {i['permissions']}\n")
+                        if 'pull' in i['permission']:
+                            print("Teams found with Read permissions:")
+                            print(f"Name: {i['name']} \n"
+                                  f"Slug: {i['slug']} \n"
+                                  f"Description: {i['description']} \n"
+                                  f"Permissions: {i['permissions']}\n")
+            except requests.exceptions.Timeout as timeout:
+                print(timeout)
+            except requests.exceptions.HTTPError as httperror:
+                print(httperror)
+                print("Check the spelling of the repository and make sure you are authenticated!")
+
+# Main function building
+if __name__ == "__main__":
+    credentials = credentials()
+    credentials.github_repo_team_perms_checker()
