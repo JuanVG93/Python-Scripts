@@ -19,7 +19,7 @@ class credentials:
                                   'AppleWebKit/537.36 (KHTML, like Gecko)'
                                   'Chrome/45.0.2454.101 Safari/537.36')
                    }
-        # Supply a list of repositories that need to be checked
+        # Who owns the repositories?
         repo_owner = ""
         # Building the API endpoint to query which will contain the repo from the repo_list we're iterating through
         repo_url = "https://api.github.com/repos/{}/{}/teams"
@@ -67,6 +67,10 @@ class credentials:
             print("Check the spelling of the repository and make sure you are authenticated!")
         except FileNotFoundError as nofile:
             print(nofile)
+            with open('Repos.txt','w') as make_file:
+                make_file.write('')
+                print(f"**Repos.txt has been automatically created.** \n"
+                      f"**Enter each repository name on a new line and save this file!**")
 
 
 # Main function building
