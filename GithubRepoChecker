@@ -94,7 +94,6 @@ class Credentials:
                 except requests.exceptions.HTTPError as httperror:
                     print(httperror)
                     print("Check the spelling of the repositories listed in the Repos.txt file!")
-                # Catch any files that cannot be found within working directory of this script
 
 
 # Main function building
