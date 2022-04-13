@@ -20,11 +20,29 @@ class Credentials:
                                   'AppleWebKit/537.36 (KHTML, like Gecko)'
                                   'Chrome/45.0.2454.101 Safari/537.36')
                    }
-        # Who owns the repositories?
+        # Enter who owns the repositories
         repo_owner = ""
         # Building the API endpoint to query which will contain the repo from the repo_list we're iterating through
         repo_url = "https://api.github.com/repos/{}/{}/teams"
 
+        # If file .env doesn't exist then one will be created with variable placeholders and the script will end
+        if not os.path.exists('.env'):
+            with open('.env', 'w') as make_envfile:
+                make_envfile.write(f"login=\n"
+                                   f"github_token=")
+                print(f"No .env file found!\n"
+                      f"**A .env file has been automatically created**\n"
+                      f"Please enter a valid GitHub username for variable 'login'\n"
+                      f"Please enter a valid Personal Access Token for variable 'github_token'")
+                exit()
+        # If file Repos.txt doesn't exist then a blank one will be created and the script will end
+        if not os.path.exists('Repos.txt'):
+            with open('Repos.txt', 'w') as make_file:
+                make_file.write('')
+                print(f"No Repos.txt file found!\n"
+                      f"**Repos.txt has been automatically created.** \n"
+                      f"Enter each repository name on a new line and save this file!\n")
+                exit()
         # Try to fetch the teams listed for each repository within the Repos.txt file
         with open('Repos.txt', 'r') as repo_list, open('.env', 'r'):
             lines = repo_list.read().splitlines()
@@ -77,23 +95,6 @@ class Credentials:
                     print(httperror)
                     print("Check the spelling of the repositories listed in the Repos.txt file!")
                 # Catch any files that cannot be found within working directory of this script
-                except FileNotFoundError:
-                    # If file Repos.txt doesn't exist then a blank one will be created
-                    if not os.path.exists('Repos.txt'):
-                        with open('Repos.txt', 'w') as make_file:
-                            make_file.write('')
-                            print(f"No Repos.txt file found!\n"
-                                  f"**Repos.txt has been automatically created.** \n"
-                                  f"Enter each repository name on a new line and save this file!\n")
-                    # If file .env doesn't exist then one will be created with variable placeholders
-                    if not os.path.exists('.env'):
-                        with open('.env', 'w') as make_envfile:
-                            make_envfile.write(f"login=\n"
-                                               f"github_token=")
-                            print(f"No .env file found!\n"
-                                  f"**A .env file has been automatically created**\n"
-                                  f"Please enter a valid GitHub username for variable 'login'\n"
-                                  f"Please enter a valid Personal Access Token for variable 'github_token'")
 
 
 # Main function building
