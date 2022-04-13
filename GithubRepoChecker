@@ -1,21 +1,22 @@
 # written by: Juan van Genderen
 # Date: 30/03/2022
-# Purpose: Automated check of which teams and their level of permissions exist for a list of repositories on Github
+# Purpose: Automated check of which teams and their level of permissions exist for a list of repositories on GitHub
 import requests
 import os
 from dotenv import load_dotenv
 
 
-class credentials:
-    # Supply user credentials to sign into the GitHub API with personal access token from the .env file within the script directory
+class Credentials:
+    # Supply user credentials to sign in to the GitHub API with personal access token from the .env file within the script directory
     load_dotenv()
     login = os.getenv('login')
     token = os.getenv("github_token")
 
-    def github_repo_team_perms_checker(self):
+    @staticmethod
+    def github_repo_team_perms_checker():
 
-        # Headers supplied so Github treats request as coming from a webbrowser in case it decides to reject the requests
-        HEADERS = {'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5)'
+        # Headers supplied so GitHub treats request as coming from a web browser in case it decides to reject the requests
+        headers = {'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5)'
                                   'AppleWebKit/537.36 (KHTML, like Gecko)'
                                   'Chrome/45.0.2454.101 Safari/537.36')
                    }
@@ -34,8 +35,8 @@ class credentials:
                 for repos in lines:
                     session = requests.Session()
                     # Building the request which contains the formatted url, headers and login credentials
-                    r = session.get(repo_url.format(repo_owner, repos), headers=HEADERS,
-                                    auth=(credentials.login, credentials.token), timeout=(1, 5))
+                    r = session.get(repo_url.format(repo_owner, repos), headers=headers,
+                                    auth=(Credentials.login, Credentials.token), timeout=(1, 5))
                     json_response = r.json()
                     r.raise_for_status()
                     print(f"Checking if {repos} exists on Github...\n")
@@ -67,7 +68,7 @@ class credentials:
             print("Check the spelling of the repository and make sure you are authenticated!")
         except FileNotFoundError as nofile:
             print(nofile)
-            with open('Repos.txt','w') as make_file:
+            with open('Repos.txt', 'w') as make_file:
                 make_file.write('')
                 print(f"**Repos.txt has been automatically created.** \n"
                       f"**Enter each repository name on a new line and save this file!**")
@@ -75,5 +76,5 @@ class credentials:
 
 # Main function building
 if __name__ == "__main__":
-    credentials = credentials()
-    credentials.github_repo_team_perms_checker()
+    Credentials = Credentials()
+    Credentials.github_repo_team_perms_checker()
