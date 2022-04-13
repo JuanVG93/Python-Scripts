@@ -26,13 +26,21 @@ class Credentials:
         repo_url = "https://api.github.com/repos/{}/{}/teams"
 
         # Try to fetch the teams listed for each repository within the Repos.txt file
-        try:
-            with open('Repos.txt', 'r') as repo_list:
-                lines = repo_list.read().splitlines()
-                size = os.path.getsize('Repos.txt')
-                if size < 1:
-                    print(f"Repos.txt is empty!")
-                for repos in lines:
+        with open('Repos.txt', 'r') as repo_list, open('.env', 'r'):
+            lines = repo_list.read().splitlines()
+            size_repos = os.path.getsize('Repos.txt')
+            size_env = os.path.getsize('.env')
+            # Check the Repos.txt file is empty
+            if size_repos < 1:
+                print(f"The Repos.txt file is empty, please supply a list of repositories to check!")
+            # Check if the Credentials variables are empty
+            if size_env < 1:
+                print(f"The .env file is empty!")
+            if not Credentials.login or not Credentials.token:
+                print(f"Invalid login details supplied within the .env file, please enter valid credentials!")
+            # Try to obtain Teams information for each repository within the Repos.txt file
+            for repos in lines:
+                try:
                     session = requests.Session()
                     # Building the request which contains the formatted url, headers and login credentials
                     r = session.get(repo_url.format(repo_owner, repos), headers=headers,
@@ -61,17 +69,31 @@ class Credentials:
                                       f"Slug: {i['slug']} \n"
                                       f"Description: {i['description']} \n"
                                       f"Permissions: {i['permissions']}\n")
-        except requests.exceptions.Timeout as timeout:
-            print(timeout)
-        except requests.exceptions.HTTPError as httperror:
-            print(httperror)
-            print("Check the spelling of the repository and make sure you are authenticated!")
-        except FileNotFoundError as nofile:
-            print(nofile)
-            with open('Repos.txt', 'w') as make_file:
-                make_file.write('')
-                print(f"**Repos.txt has been automatically created.** \n"
-                      f"**Enter each repository name on a new line and save this file!**")
+                # Catch any timeouts from GitHub
+                except requests.exceptions.Timeout as timeout:
+                    print(timeout)
+                # Catch any HTTP response errors from GitHub (EG: error 404 if the repository doesn't exist or you don't have access)
+                except requests.exceptions.HTTPError as httperror:
+                    print(httperror)
+                    print("Check the spelling of the repositories listed in the Repos.txt file!")
+                # Catch any files that cannot be found within working directory of this script
+                except FileNotFoundError:
+                    # If file Repos.txt doesn't exist then a blank one will be created
+                    if not os.path.exists('Repos.txt'):
+                        with open('Repos.txt', 'w') as make_file:
+                            make_file.write('')
+                            print(f"No Repos.txt file found!\n"
+                                  f"**Repos.txt has been automatically created.** \n"
+                                  f"Enter each repository name on a new line and save this file!\n")
+                    # If file .env doesn't exist then one will be created with variable placeholders
+                    if not os.path.exists('.env'):
+                        with open('.env', 'w') as make_envfile:
+                            make_envfile.write(f"login=\n"
+                                               f"github_token=")
+                            print(f"No .env file found!\n"
+                                  f"**A .env file has been automatically created**\n"
+                                  f"Please enter a valid GitHub username for variable 'login'\n"
+                                  f"Please enter a valid Personal Access Token for variable 'github_token'")
 
 
 # Main function building
