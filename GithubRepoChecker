@@ -54,18 +54,20 @@ class Credentials:
             # Check if the Credentials variables are empty
             if size_env < 1:
                 print(f"The .env file is empty!")
-            if not Credentials.login or not Credentials.token:
-                print(f"Invalid login details supplied within the .env file, please enter valid credentials!")
+
             # Try to obtain Teams information for each repository within the Repos.txt file
             for repos in lines:
+                if not Credentials.login or not Credentials.token:
+                    print(f"No login details supplied within the .env file, please enter valid credentials!")
+                    break
                 try:
                     session = requests.Session()
                     # Building the request which contains the formatted url, headers and login credentials
                     r = session.get(repo_url.format(repo_owner, repos), headers=headers,
                                     auth=(Credentials.login, Credentials.token), timeout=(1, 5))
+                    print(f"Checking if {repos} exists on Github...\n")
                     json_response = r.json()
                     r.raise_for_status()
-                    print(f"Checking if {repos} exists on Github...\n")
                     if r.status_code // 100 == 2:
                         print(f"**Teams listed in {repos}**\n")
                         for i in json_response:
@@ -92,8 +94,8 @@ class Credentials:
                     print(timeout)
                 # Catch any HTTP response errors from GitHub (EG: error 404 if the repository doesn't exist or you don't have access)
                 except requests.exceptions.HTTPError as httperror:
-                    print(httperror)
-                    print("Check the spelling of the repositories listed in the Repos.txt file!")
+                    print(f"{httperror}\n")
+                    print(f"Check the spelling of the repositories listed in the Repos.txt file!\n")
 
 
 # Main function building
