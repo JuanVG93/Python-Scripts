@@ -24,7 +24,10 @@ class Credentials:
         repo_owner = ""
         # Building the API endpoint to query which will contain the repo from the repo_list we're iterating through
         repo_url = "https://api.github.com/repos/{}/{}/teams"
-
+        # Building the API endpoint to query which AAD groups are mapped to a Slug from the slug_list we're iterating through
+        slug_url = "https://api.github.com/orgs/{}/teams/{}/team-sync/group-mappings"
+        # List of slugs
+        slug_list = []
         # If file .env doesn't exist then one will be created with variable placeholders and the script will end
         if not os.path.exists('.env'):
             with open('.env', 'w') as make_envfile:
@@ -71,24 +74,43 @@ class Credentials:
                     if r.status_code // 100 == 2:
                         print(f"**Teams listed in {repos}**\n")
                         for i in json_response:
+                            if i['slug'] not in slug_list:
+                                slug_list.append(i['slug'])
                             if 'admin' in i['permission']:
                                 print("Teams found with Admin permissions:")
                                 print(f"Name: {i['name']} \n"
                                       f"Slug: {i['slug']} \n"
                                       f"Description: {i['description']} \n"
                                       f"Permissions: {i['permissions']}\n")
+
                             if 'push' in i['permission']:
                                 print("Teams found with Write permissions:")
                                 print(f"Name: {i['name']} \n"
                                       f"Slug: {i['slug']} \n"
                                       f"Description: {i['description']} \n"
                                       f"Permissions: {i['permissions']}\n")
+
                             if 'pull' in i['permission']:
                                 print("Teams found with Read permissions:")
                                 print(f"Name: {i['name']} \n"
                                       f"Slug: {i['slug']} \n"
                                       f"Description: {i['description']} \n"
                                       f"Permissions: {i['permissions']}\n")
+                        #print(f"------------------------------------------\n")
+
+                        for slugs in slug_list:
+                            print(f"Checking which AAD group is linked to Team: {slugs}...\n")
+                            # Building a new request which contains the formatted url, headers and login credentials
+                            r2 = session.get(slug_url.format(repo_owner, slugs), headers=headers,
+                                             auth=(Credentials.login, Credentials.token), timeout=(1, 5))
+                            json_response2 = r2.json()
+                            r2.raise_for_status()
+                            if r2.status_code // 100 == 2:
+                                for groups in json_response2['groups']:
+                                    print(f"AAD Groups found:\n"
+                                          f"Name: {groups['group_name']}\n")
+                        print(f"------------------------------------------\n")
+
                 # Catch any timeouts from GitHub
                 except requests.exceptions.Timeout as timeout:
                     print(timeout)
