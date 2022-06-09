@@ -1,33 +1,68 @@
 # written by: Juan van Genderen
 # Date: 30/03/2022
-# Purpose: Automated check of which teams and their level of permissions exist for a list of repositories on GitHub
+# Purpose: Automated check of which teams and their level of permissions exist for a list of repositories or a list of teams on GitHub
 import requests
 import os
+import argparse
 from dotenv import load_dotenv
 
 
+# This class contains the Github API endpoints that will be used
+class Endpoints:
+    # Building the API endpoint to query which Teams exist in a repository along with the permission levels
+    repo_url = "https://api.github.com/repos/{}/{}/teams"
+    # Building the API endpoint to query which AAD groups are mapped to a Team Slug
+    slug_url = "https://api.github.com/orgs/{}/teams/{}/team-sync/group-mappings"
+    # Building the API endpoint to query which repositories are listed for the Team
+    teams_url = "https://api.github.com/orgs/{}/teams/{}"
+
+
+
+# This class contains the Github Username and Personal Access Token stored within the .env file 
 class Credentials:
     # Supply user credentials to sign in to the GitHub API with personal access token from the .env file within the script directory
     load_dotenv()
     login = os.getenv('login')
     token = os.getenv("github_token")
+    
+    
+    
+    
+    # This function contains all the arguments the user can supply when running this script and calls the appropriate function
+    def parse_arg(self):
+    
+        # Pass command line arguments into the script
+        parser = argparse.ArgumentParser(prog="githubchecks",
+        description="You can use this tool to quickly identify which teams grant the required level of access to a list of repositories and what AAD groups these teams are linked to.\nYou can also submit a list of teams which the tool will check which AAD group is linked.")
+        parser.add_argument("org",
+        help="Please supply the organization where the repositories exist.")
+        parser.add_argument("-r", "--repos",
+        action="store_true",
+        help="This switch tells the script to check the list of repositories (Repos.txt)")
+        parser.add_argument("-t", "--teams",
+        action="store_true",
+        help="This switch tells the script to check the list of teams (Teams.txt)")
+        
+        args = parser.parse_args()
+        self.args = args
+        if self.args.repos:
+            print(f"Reading from the Repos.txt file...")
+            Credentials.github_repo_team_perms_checker()
+        if self.args.teams:
+            print(f"Reading from the Teams.txt file...")
+            Credentials.github_teams_AAD_relation_checker()
+     
 
-    @staticmethod
-    def github_repo_team_perms_checker():
+        
+
+    # This function will retreive the Teams listed for the Github repositories supplied in the Repos.txt file
+    def github_repo_team_perms_checker(self):
 
         # Headers supplied so GitHub treats request as coming from a web browser in case it decides to reject the requests
         headers = {'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5)'
                                   'AppleWebKit/537.36 (KHTML, like Gecko)'
                                   'Chrome/45.0.2454.101 Safari/537.36')
                    }
-        # Enter who owns the repositories
-        repo_owner = ""
-        # Building the API endpoint to query which will contain the repo from the repo_list we're iterating through
-        repo_url = "https://api.github.com/repos/{}/{}/teams"
-        # Building the API endpoint to query which AAD groups are mapped to a Slug from the slug_list we're iterating through
-        slug_url = "https://api.github.com/orgs/{}/teams/{}/team-sync/group-mappings"
-        # List of slugs
-        slug_list = []
         # If file .env doesn't exist then one will be created with variable placeholders and the script will end
         if not os.path.exists('.env'):
             with open('.env', 'w') as make_envfile:
@@ -40,8 +75,8 @@ class Credentials:
                 exit()
         # If file Repos.txt doesn't exist then a blank one will be created and the script will end
         if not os.path.exists('Repos.txt'):
-            with open('Repos.txt', 'w') as make_file:
-                make_file.write('')
+            with open('Repos.txt', 'w') as make_file_repos:
+                make_file_repos.write('')
                 print(f"No Repos.txt file found!\n"
                       f"**Repos.txt has been automatically created.** \n"
                       f"Enter each repository name on a new line and save this file!\n")
@@ -57,7 +92,6 @@ class Credentials:
             # Check if the Credentials variables are empty
             if size_env < 1:
                 print(f"The .env file is empty!")
-
             # Try to obtain Teams information for each repository within the Repos.txt file
             for repos in lines:
                 if not Credentials.login or not Credentials.token:
@@ -66,61 +100,126 @@ class Credentials:
                 try:
                     session = requests.Session()
                     # Building the request which contains the formatted url, headers and login credentials
-                    r = session.get(repo_url.format(repo_owner, repos), headers=headers,
+                    r = session.get(Endpoints.repo_url.format(self.args.org, repos), headers=headers,
                                     auth=(Credentials.login, Credentials.token), timeout=(1, 5))
-                    print(f"Checking if {repos} exists on Github...\n")
+                    print(f"\nTeams within the '{repos}' repository:\n")
+                    json_response = r.json()
+                    r.raise_for_status()
+                    # Check if the team is not managed by an external group
+                    if not json_response:
+                        print(f"[INFO] No Teams listed for this repository, users will need to be manually added to this repository on Github! ")
+                        continue
+                    if r.status_code // 100 == 2:
+                        # By looking at the entire range of the JSON response object, we index to avoid duplicating efforts and gather the slugs so that we can query the next endpoint
+                        for slug in range(len(json_response)):
+                            if json_response[slug]["slug"]:
+                            # Building a new request which contains the formatted url, headers and login credentials because the next set of information we require needs to be obtained from another endpoint
+                                r2 = session.get(Endpoints.slug_url.format(self.args.org, json_response[slug]["slug"]), headers=headers,
+                                                 auth=(Credentials.login, Credentials.token), timeout=(1, 5))
+                                json_response2 = r2.json()
+                                r2.raise_for_status()
+                                if r2.status_code // 100 == 2:
+                                    # For each group that is returned by this endpoint via the JSON response object, we index to avoid duplicating efforts and gather the teams which are managed by external groups
+                                    for groups in json_response2:
+                                        #Check if the Team is not managed via AAD
+                                        if not json_response2['groups']:
+                                            print(f"[INFO] The Team {json_response[slug]['name']} is not managed via AAD, users will need to be manually added on Github!")
+                                        if json_response2['groups']:
+                                            # For each team we now list the AAD Group it is linked to along with their permission levels
+                                            for groups in json_response2['groups']:
+                                                if 'admin' in json_response[slug]['permission']:
+                                                    print(f"The Team {json_response[slug]['name']} is linked to the AAD Group {groups['group_name']} with Admin permissions")
+                                                if 'push' in json_response[slug]['permission']:
+                                                    print(f"The Team {json_response[slug]['name']} is linked to the AAD Group {groups['group_name']} with Write permissions")
+                                                if 'pull' in json_response[slug]['permission']:
+                                                    print(f"The Team {json_response[slug]['name']} is linked to the AAD Group {groups['group_name']} with Read permissions")
+    
+                # Catch any timeouts from GitHub
+                except requests.exceptions.Timeout as timeout:
+                    print(timeout)
+                # Catch any HTTP response errors from GitHub (EG: error 404 if the repository doesn't exist or you don't have access)
+                except requests.exceptions.HTTPError as httperror:
+                    print(httperror)
+                    print(f"[ERROR] No repository found called {repos} owned by {self.args.org}")
+                    print(f"Response from the Github API:\n{json_response}")
+                    print(f"------------------------------------------\n")
+                    print(f"[!] Make sure you have no spelling mistakes within the Repos.txt file and that you've entered the right organization!")
+    
+    
+    
+    # This function will retrieve the AAD groups linked to the Github teams supplied in the Teams.txt file
+    def github_teams_AAD_relation_checker(self):
+
+        # Headers supplied so GitHub treats request as coming from a web browser in case it decides to reject the requests
+        headers = {'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5)'
+                                  'AppleWebKit/537.36 (KHTML, like Gecko)'
+                                  'Chrome/45.0.2454.101 Safari/537.36')
+                   }
+        # If file .env doesn't exist then one will be created with variable placeholders and the script will end
+        if not os.path.exists('.env'):
+            with open('.env', 'w') as make_envfile:
+                make_envfile.write(f"login=\n"
+                                   f"github_token=")
+                print(f"No .env file found!\n"
+                      f"**A .env file has been automatically created**\n"
+                      f"Please enter a valid GitHub username for variable 'login'\n"
+                      f"Please enter a valid Personal Access Token for variable 'github_token'")
+                exit()
+        # If file Teams.txt doesn't exist then a blank one will be created and the script will end
+        if not os.path.exists('Teams.txt'):
+            with open('Teams.txt', 'w') as make_file_teams:
+                make_file_teams.write('')
+                print(f"No Teams.txt file found!\n"
+                      f"**Repos.txt has been automatically created.** \n"
+                      f"Enter each repository name on a new line and save this file!\n")
+                exit()
+        # Try to fetch the teams listed for each repository within the Teams.txt file
+        with open('Teams.txt', 'r') as teams_list, open('.env', 'r'):
+            lines = teams_list.read().splitlines()
+            size_teams = os.path.getsize('Teams.txt')
+            size_env = os.path.getsize('.env')
+            # Check the Teams.txt file is empty
+            if size_teams < 1:
+                print(f"The Teams.txt file is empty, please supply a list of teams to check!")
+            # Check if the Credentials variables are empty
+            if size_env < 1:
+                print(f"The .env file is empty!")
+            # Try to obtain Teams information for each repository within the Repos.txt file
+            for teams in lines:
+                if not Credentials.login or not Credentials.token:
+                    print(f"No login details supplied within the .env file, please enter valid credentials!")
+                    break
+                try:
+                    session = requests.Session()
+                    # Building a new request which contains the formatted url, headers and login credentials because the next set of information we require needs to be obtained from another endpoint
+                    r = session.get(Endpoints.teams_url.format(self.args.org, teams), headers=headers,
+                                     auth=(Credentials.login, Credentials.token), timeout=(1, 5))
+                    print(f"\nAAD group linked to '{teams}' team:\n")
                     json_response = r.json()
                     r.raise_for_status()
                     if r.status_code // 100 == 2:
-                        print(f"**Teams listed in {repos}**\n")
-                        for i in json_response:
-                            if i['slug'] not in slug_list:
-                                slug_list.append(i['slug'])
-                            if 'admin' in i['permission']:
-                                print("Teams found with Admin permissions:")
-                                print(f"Name: {i['name']} \n"
-                                      f"Slug: {i['slug']} \n"
-                                      f"Description: {i['description']} \n"
-                                      f"Permissions: {i['permissions']}\n")
-
-                            if 'push' in i['permission']:
-                                print("Teams found with Write permissions:")
-                                print(f"Name: {i['name']} \n"
-                                      f"Slug: {i['slug']} \n"
-                                      f"Description: {i['description']} \n"
-                                      f"Permissions: {i['permissions']}\n")
-
-                            if 'pull' in i['permission']:
-                                print("Teams found with Read permissions:")
-                                print(f"Name: {i['name']} \n"
-                                      f"Slug: {i['slug']} \n"
-                                      f"Description: {i['description']} \n"
-                                      f"Permissions: {i['permissions']}\n")
-                        #print(f"------------------------------------------\n")
-
-                        for slugs in slug_list:
-                            print(f"Checking which AAD group is linked to Team: {slugs}...\n")
-                            # Building a new request which contains the formatted url, headers and login credentials
-                            r2 = session.get(slug_url.format(repo_owner, slugs), headers=headers,
+                            # Building a new request which contains the formatted url, headers and login credentials because the next set of information we require needs to be obtained from another endpoint
+                            r2 = session.get(Endpoints.slug_url.format(self.args.org, teams), headers=headers,
                                              auth=(Credentials.login, Credentials.token), timeout=(1, 5))
                             json_response2 = r2.json()
                             r2.raise_for_status()
                             if r2.status_code // 100 == 2:
+                                if not json_response2['groups']:
+                                    print(f"[INFO] The Team {json_response[slug]['name']} is not managed via AAD, users will need to be manually added on Github!")
                                 for groups in json_response2['groups']:
-                                    print(f"AAD Groups found:\n"
-                                          f"Name: {groups['group_name']}\n")
-                        print(f"------------------------------------------\n")
+                                    print(f"The Team {json_response['name']} is linked to the AAD Group {groups['group_name']}")
 
                 # Catch any timeouts from GitHub
                 except requests.exceptions.Timeout as timeout:
                     print(timeout)
                 # Catch any HTTP response errors from GitHub (EG: error 404 if the repository doesn't exist or you don't have access)
                 except requests.exceptions.HTTPError as httperror:
-                    print(f"{httperror}\n")
-                    print(f"Check the spelling of the repositories listed in the Repos.txt file!\n")
-
-
+                    print(httperror)
+                    print(f"[ERROR] No team found called {teams} owned by {self.args.org}")
+                    print(f"Response from the Github API:\n{json_response}")
+                    print(f"------------------------------------------\n")
+                    print(f"[!] Make sure you have no spelling mistakes within the Teams.txt file and that you've entered the right organization!")
 # Main function building
 if __name__ == "__main__":
     Credentials = Credentials()
-    Credentials.github_repo_team_perms_checker()
+    Credentials.parse_arg()
