@@ -47,13 +47,13 @@ class Credentials:
         self.args = args
         if self.args.repos:
             print(f"Reading from the Repos.txt file...")
-            Credentials.github_repo_team_perms_checker()
+            return Credentials.github_repo_team_perms_checker()
         if self.args.teams:
             print(f"Reading from the Teams.txt file...")
-            Credentials.github_teams_AAD_relation_checker()
-     
+            return Credentials.github_teams_AAD_relation_checker()
+ 
 
-        
+
 
     # This function will retreive the Teams listed for the Github repositories supplied in the Repos.txt file
     def github_repo_team_perms_checker(self):
@@ -205,7 +205,7 @@ class Credentials:
                             r2.raise_for_status()
                             if r2.status_code // 100 == 2:
                                 if not json_response2['groups']:
-                                    print(f"[INFO] The Team {json_response[slug]['name']} is not managed via AAD, users will need to be manually added on Github!")
+                                    print(f"[INFO] The Team {json_response['name']} is not managed via AAD, users will need to be manually added on Github!")
                                 for groups in json_response2['groups']:
                                     print(f"The Team {json_response['name']} is linked to the AAD Group {groups['group_name']}")
 
