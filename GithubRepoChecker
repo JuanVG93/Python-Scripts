@@ -4,7 +4,7 @@
 import requests
 import os
 import argparse
-import datetime
+from datetime import datetime
 from dotenv import load_dotenv
 
 
@@ -20,10 +20,10 @@ class Endpoints:
     pending_invite_url = "https://api.github.com/orgs/{}/invitations"
     # Building the API endpoint to list the failed Organization invites
     failed_invites_url = "https://api.github.com/orgs/{}/failed_invitations"
-    # # Building the API endpoint to list the organization members
-    # org_members_url = "https://api.github.com/orgs/{}/members"
-    # # Building the API endpoint to list user information
-    # user_info_url = "https://api.github.com/users/{}"
+    # Building the API endpoint to list all repositories
+    all_repos_url = "https://api.github.com/orgs/{}/repos"
+    # Building the API endpoint to list all teams
+    all_teams_url = "https://api.github.com/orgs/{}/teams"
 
 
 
@@ -42,7 +42,7 @@ class Credentials:
     
         # Pass command line arguments into the script
         parser = argparse.ArgumentParser(prog="githubchecks",
-        description="You can use this tool to some Github checks. Check the help file for a full list of supported actions.")
+        description="You can use this tool to carry out some automated Github checks as the website doesn't allow for bulk checks to be carried out. Check the help file for a full list of supported actions.")
         parser.add_argument("org",
         help="Please supply the organization where the repositories exist.")
         parser.add_argument("-r", "--repos",
@@ -57,6 +57,12 @@ class Credentials:
         parser.add_argument("-fi","--failedinvites",
         action="store_true",
         help="This switch tells the script to check the failed invitations.")
+        parser.add_argument ("-rr", "--reportrepos",
+        action="store_true",
+        help="This switch tells the script to report on all repositories that exist within the organization.")
+        parser.add_argument("-rt", "--reportteams",
+        action="store_true",
+        help="This switch tells the script to report on all teams that exist within the organization.")
 
         
         args = parser.parse_args()
@@ -76,6 +82,12 @@ class Credentials:
         if self.args.failedinvites:
             print(f"Listing all failed invitations for the {self.args.org} organization:\n")
             return Credentials.github_failed_invitations_checker()
+        if self.args.reportrepos:
+            print(f"Listing all repositories within the {self.args.org} organization:\n")
+            return Credentials.github_report_all_repos()
+        if self.args.reportteams:
+            print(f"Listing all teams within the {self.args.org} organization: \n")
+            return Credentials.github_report_all_teams()
 
 
 
@@ -152,12 +164,7 @@ class Credentials:
                                         if json_response2['groups']:
                                             # For each team we now list the AAD Group it is linked to along with their permission levels
                                             for groups in json_response2['groups']:
-                                                if 'admin' in json_response[slug]['permission']:
-                                                    print(f"The Team {json_response[slug]['name']} is linked to the AAD Group {groups['group_name']} with Admin permissions")
-                                                if 'push' in json_response[slug]['permission']:
-                                                    print(f"The Team {json_response[slug]['name']} is linked to the AAD Group {groups['group_name']} with Write permissions")
-                                                if 'pull' in json_response[slug]['permission']:
-                                                    print(f"The Team {json_response[slug]['name']} is linked to the AAD Group {groups['group_name']} with Read permissions")
+                                                print(f"The Team {json_response[slug]['name']} is linked to AAD Group {groups['group_name']} with {json_response[slug]['permission']} permissions")
     
                 # Catch any timeouts from GitHub
                 except requests.exceptions.Timeout as timeout:
@@ -228,9 +235,9 @@ class Credentials:
                             r2.raise_for_status()
                             if r2.status_code // 100 == 2:
                                 if not json_response2['groups']:
-                                    pprint(f"[INFO] The Team {json_response['name']} is not managed via AAD, users will need to be manually added on Github!",indent=4)
+                                    print(f"[INFO] The Team {json_response['name']} is not managed via AAD, users will need to be manually added on Github!")
                                 for groups in json_response2['groups']:
-                                    pprint(f"The Team {json_response['name']} is linked to the AAD Group {groups['group_name']}",indent=4)
+                                    print(f"The Team {json_response['name']} is linked to the AAD Group {groups['group_name']}")
 
                 # Catch any timeouts from GitHub
                 except requests.exceptions.Timeout as timeout:
@@ -243,6 +250,7 @@ class Credentials:
                     print(f"------------------------------------------\n")
                     print(f"[!] Make sure you have no spelling mistakes within the Teams.txt file and that you've entered the right organization!")
 
+    # This function will retrieve all pending invitations for the organization
     def github_pending_invitations_checker(self):
     
         # Headers supplied so GitHub treats request as coming from a web browser in case it decides to reject the requests
@@ -268,7 +276,7 @@ class Credentials:
                     if not json_response:
                         break
                     for invites in range(len(json_response)):
-                        date = datetime.datetime.fromisoformat(json_response[invites]['created_at']).strftime("%d %m %Y")
+                        date = datetime.datetime.fromisoformat(json_response[invites]['created_at']).strftime("%d %m %Y %H:%M")
                         if not json_response[invites]['email'] == None:
                             #print(json_response[invites]['email'])
                             print(f"Email {json_response[invites]['email']} was invited by {json_response[invites]['inviter']['login']} on {date}")
@@ -284,6 +292,7 @@ class Credentials:
                 print(f"Response from the Github API:\n{json_response}")
                 print(f"------------------------------------------\n")
 
+    # This function will retrieve all the failed invitations for the organization
     def github_failed_invitations_checker(self):
     
         # Headers supplied so GitHub treats request as coming from a web browser in case it decides to reject the requests
@@ -313,11 +322,11 @@ class Credentials:
                     if not json_response:
                         break
                     for invites in range(len(json_response)):
-                        date = datetime.datetime.fromisoformat(json_response[invites]['created_at']).strftime("%d %m %Y")
+                        date = datetime.fromisoformat(json_response[invites]['created_at']).strftime("%d %m %Y %H:%M")
                         if not json_response[invites]['email'] == None:
-                            print(f"Email '{json_response[invites]['email']} invite from '{json_response[invites]['inviter']['login']}' failed because '{json_response[invites]['failed_reason']}' on '{date}'")
+                            print(f"Email {json_response[invites]['email']} invite from {json_response[invites]['inviter']['login']} {json_response[invites]['failed_reason']} on {date}")
                         if not json_response[invites]['login'] == None:
-                            print(f"User '{json_response[invites]['login']}' invite from '{json_response[invites]['inviter']['login']}' failed because '{json_response[invites]['failed_reason']}' on '{date}'")
+                            print(f"User {json_response[invites]['login']} invite from {json_response[invites]['inviter']['login']} {json_response[invites]['failed_reason']} on {date}")
                             
             # Catch any timeouts from GitHub
             except requests.exceptions.Timeout as timeout:
@@ -327,6 +336,108 @@ class Credentials:
                 print(httperror)
                 print(f"Response from the Github API:\n{json_response}")
                 print(f"------------------------------------------\n")
+                
+    # This function will report back all repositories
+    def github_report_all_repos(self):
+    
+        # Headers supplied so GitHub treats request as coming from a web browser in case it decides to reject the requests
+        headers = {'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5)'
+                                  'AppleWebKit/537.36 (KHTML, like Gecko)'
+                                  'Chrome/45.0.2454.101 Safari/537.36')
+                   }
+        if not Credentials.login or not Credentials.token:
+            print(f"No login details supplied within the .env file, please enter valid credentials!")
+            exit
+        page = 0
+        names = []
+        while True:
+            try:
+                page += 1
+                session = requests.Session()
+                #new_results = True
+                params = {
+                'per_page' : '100',
+                'page' : {page},
+                'sort' : 'full_name'
+                }
+                # Building a new request which contains the formatted url, headers and login credentials because the next set of information we require needs to be obtained from another endpoint
+                r = session.get(Endpoints.all_repos_url.format(self.args.org), headers=headers,
+                                 auth=(Credentials.login, Credentials.token), timeout=(1, 5), params=params)   
+                json_response = r.json()
+                r.raise_for_status()
+                if r.status_code // 100 == 2:
+                    if not json_response:
+                        break
+                    for repos in range(len(json_response)):
+                        # For some reason the Github API adds the letter Z to the datetime string and the datetime module won't recognize this as valid ISO-8601 format
+                        # First we collect the dates from Github
+                        date_from_github = json_response[repos]['created_at']
+                        # Then we replace the letter Z with nothing which will remove it from the string
+                        formatted_date = date_from_github.replace('Z','')
+                        # Now we can convert this from ISO format to a string time format
+                        date = datetime.fromisoformat(formatted_date).strftime("%d %m %Y %H:%M")
+                        # All repositories are returned with with when they were created
+                        print(f"Repository: {json_response[repos]['full_name']}\nDescription: {json_response[repos]['description']}\nCreated: {date}\n")
+                        names.append(json_response[repos]['full_name'])
+                        
+            # Catch any timeouts from GitHub
+            except requests.exceptions.Timeout as timeout:
+                print(timeout)
+            # Catch any HTTP response errors from GitHub (EG: error 404 if the repository doesn't exist or you don't have access)
+            except requests.exceptions.HTTPError as httperror:
+                print(httperror)
+                print(f"Response from the Github API:\n{json_response}")
+                print(f"------------------------------------------\n")
+        # Return the amount of repositories found
+        print(f"Total Repositories: {len(names)}")
+        
+    # This function will report back all teams
+    def github_report_all_teams(self):
+        
+        # Headers supplied so GitHub treats request as coming from a web browser in case it decides to reject the requests
+        headers = {'user-agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5)'
+                                  'AppleWebKit/537.36 (KHTML, like Gecko)'
+                                  'Chrome/45.0.2454.101 Safari/537.36')
+                   }
+        if not Credentials.login or not Credentials.token:
+            print(f"No login details supplied within the .env file, please enter valid credentials!")
+            exit
+        page = 0
+        names = []
+        while True:
+            try:
+                page += 1
+                session = requests.Session()
+                #new_results = True
+                params = {
+                'per_page' : '100',
+                'page' : {page},
+                'sort' : 'name'
+                }
+                # Building a new request which contains the formatted url, headers and login credentials because the next set of information we require needs to be obtained from another endpoint
+                r = session.get(Endpoints.all_teams_url.format(self.args.org), headers=headers,
+                                 auth=(Credentials.login, Credentials.token), timeout=(1, 5), params=params)   
+                json_response = r.json()
+                r.raise_for_status()
+                if r.status_code // 100 == 2:
+                    if not json_response:
+                        break
+                    for teams in range(len(json_response)):
+                        # All teams are returned with with their permission level
+                        print(f"Repository: {json_response[teams]['name']}\nDescription: {json_response[teams]['description']}\nPermissions: {json_response[teams]['permission']}\n")
+                        names.append(json_response[teams]['name'])
+                        
+            # Catch any timeouts from GitHub
+            except requests.exceptions.Timeout as timeout:
+                print(timeout)
+            # Catch any HTTP response errors from GitHub (EG: error 404 if the repository doesn't exist or you don't have access)
+            except requests.exceptions.HTTPError as httperror:
+                print(httperror)
+                print(f"Response from the Github API:\n{json_response}")
+                print(f"------------------------------------------\n")
+        # Return the amount of repositories found
+        print(f"Total Teams: {len(names)}")
+
 
 
 # Main function building
